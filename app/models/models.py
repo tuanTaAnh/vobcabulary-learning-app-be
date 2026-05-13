@@ -39,7 +39,7 @@ class VocabBase(SQLModel):
     topic: Optional[str] = None
     collection_id: Optional[int] = Field(default=None, foreign_key="collections.id")
     swipe_count: int = 0
-    is_starred: bool = Field(default=False)
+    is_starred: bool = False
 
 
 class Vocab(VocabBase, table=True):
@@ -48,18 +48,21 @@ class Vocab(VocabBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    collection_id: Optional[int] = Field(default=None, foreign_key="collections.id")
     collection: Optional[Collection] = Relationship(back_populates="vocabs")
 
 
 class VocabCreate(VocabBase):
     collection_id: Optional[int] = None
+    swipe_count: int = 0
+    is_starred: bool = False
 
 
 class VocabRead(VocabBase):
     id: int
     created_at: datetime
     collection_id: Optional[int] = None
+    swipe_count: int = 0
+    is_starred: bool = False
 
 
 class VocabUpdate(SQLModel):
