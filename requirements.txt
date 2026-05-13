@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+python-dotenv
+transformers
+torch
+accelerate
+huggingface_hub
