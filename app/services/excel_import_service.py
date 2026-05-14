@@ -1,75 +1,281 @@
-import os
+import io
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
-from sqlmodel import Session
+from openpyxl import load_workbook
+from sqlmodel import Session, select
 
-from app.db.database import get_session
-from app.services.excel_import_service import import_excel_to_collection
-
-
-router = APIRouter(prefix="/import", tags=["import"])
+from app.models.models import Collection, Vocab
 
 
-def verify_import_token(
-    x_import_token: Optional[str] = Header(default=None),
-) -> None:
-    expected_token = os.getenv("IMPORT_API_TOKEN")
+HEADER_ROW = 1
 
-    if not expected_token:
-        return
-
-    if x_import_token != expected_token:
-        raise HTTPException(status_code=401, detail="Invalid import token.")
+COL_GERMAN = "german"
+COL_PRONUNCIATION = "pronunciation"
+COL_MEANING = "meaning"
+COL_EXAMPLES = "examples"
 
 
-@router.post("/excel")
-async def import_excel(
-    file: UploadFile = File(...),
-    collection_name: str = Form(default="German Vocab"),
-    collection_description: str = Form(default="Imported from Excel"),
-    collection_icon: str = Form(default="🇩🇪"),
-    default_topic: Optional[str] = Form(default=None),
-    mode: str = Form(default="update"),
-    sheet_name: Optional[str] = Form(default=None),
-    session: Session = Depends(get_session),
-    _: None = Depends(verify_import_token),
-):
-    filename = file.filename or ""
+def normalize_text(value) -> str:
+    if value is None:
+        return ""
 
-    if not filename.lower().endswith((".xlsx", ".xlsm")):
-        raise HTTPException(
-            status_code=400,
-            detail="Please upload an .xlsx or .xlsm Excel file.",
+    return str(value).strip()
+
+
+def get_first_line(value) -> str:
+    text = normalize_text(value)
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+    if not lines:
+        return ""
+
+    return lines[0]
+
+
+def clean_examples(value) -> str:
+    text = normalize_text(value)
+
+    if not text:
+        return ""
+
+    lines = text.splitlines()
+    cleaned_lines = []
+
+    for line in lines:
+        stripped = line.strip()
+
+        if not stripped:
+            continue
+
+        if stripped.lower().startswith("note"):
+            break
+
+        cleaned_lines.append(stripped)
+
+    return "\n".join(cleaned_lines).strip()
+
+
+def combine_meaning_and_pronunciation(meaning: str, pronunciation: str) -> str:
+    meaning = normalize_text(meaning)
+    pronunciation = normalize_text(pronunciation)
+
+    if meaning and pronunciation:
+        return f"{meaning} /{pronunciation}/"
+
+    if meaning:
+        return meaning
+
+    if pronunciation:
+        return f"/{pronunciation}/"
+
+    return ""
+
+
+def find_header_map(sheet) -> dict[str, int]:
+    header_map = {}
+
+    for cell in sheet[HEADER_ROW]:
+        header = normalize_text(cell.value).lower()
+
+        if header:
+            header_map[header] = cell.column
+
+    required_headers = [
+        COL_GERMAN,
+        COL_PRONUNCIATION,
+        COL_MEANING,
+        COL_EXAMPLES,
+    ]
+
+    missing_headers = [
+        header for header in required_headers if header not in header_map
+    ]
+
+    if missing_headers:
+        raise ValueError(
+            "Missing required Excel headers: "
+            + ", ".join(missing_headers)
+            + ". Expected headers: German, Pronunciation, meaning, Examples"
         )
 
-    try:
-        file_bytes = await file.read()
+    return header_map
 
-        if not file_bytes:
-            raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-        result = import_excel_to_collection(
+def get_or_create_collection(
+    session: Session,
+    collection_name: str,
+    description: Optional[str] = None,
+    icon: Optional[str] = None,
+) -> Collection:
+    statement = select(Collection).where(Collection.name == collection_name)
+    collection = session.exec(statement).first()
+
+    if collection:
+        changed = False
+
+        if description is not None and collection.description != description:
+            collection.description = description
+            changed = True
+
+        if hasattr(collection, "icon") and icon and collection.icon != icon:
+            collection.icon = icon
+            changed = True
+
+        if changed:
+            session.add(collection)
+            session.commit()
+            session.refresh(collection)
+
+        return collection
+
+    create_data = {
+        "name": collection_name,
+        "description": description or "Imported from Excel",
+    }
+
+    if hasattr(Collection, "icon"):
+        create_data["icon"] = icon or "🇩🇪"
+
+    collection = Collection(**create_data)
+
+    session.add(collection)
+    session.commit()
+    session.refresh(collection)
+
+    return collection
+
+
+def get_existing_vocab(
+    session: Session,
+    german: str,
+    collection_id: int,
+) -> Optional[Vocab]:
+    statement = (
+        select(Vocab)
+        .where(Vocab.german == german)
+        .where(Vocab.collection_id == collection_id)
+    )
+
+    return session.exec(statement).first()
+
+
+def import_excel_to_collection(
+    session: Session,
+    file_bytes: bytes,
+    collection_name: str = "German Vocab",
+    collection_description: str = "Imported from Excel",
+    collection_icon: str = "🇩🇪",
+    default_topic: Optional[str] = None,
+    mode: str = "update",
+    sheet_name: Optional[str] = None,
+) -> dict:
+    if mode not in {"update", "skip"}:
+        raise ValueError("mode must be either 'update' or 'skip'.")
+
+    workbook = load_workbook(io.BytesIO(file_bytes), data_only=True)
+
+    if sheet_name:
+        if sheet_name not in workbook.sheetnames:
+            raise ValueError(
+                f"Sheet '{sheet_name}' not found. Available sheets: {workbook.sheetnames}"
+            )
+
+        sheet = workbook[sheet_name]
+    else:
+        sheet = workbook.active
+
+    header_map = find_header_map(sheet)
+
+    collection = get_or_create_collection(
+        session=session,
+        collection_name=collection_name,
+        description=collection_description,
+        icon=collection_icon,
+    )
+
+    if collection.id is None:
+        raise RuntimeError("Collection ID is missing after creation.")
+
+    imported_count = 0
+    updated_count = 0
+    skipped_count = 0
+
+    for row_index in range(HEADER_ROW + 1, sheet.max_row + 1):
+        german_raw = sheet.cell(
+            row=row_index,
+            column=header_map[COL_GERMAN],
+        ).value
+
+        pronunciation_raw = sheet.cell(
+            row=row_index,
+            column=header_map[COL_PRONUNCIATION],
+        ).value
+
+        meaning_raw = sheet.cell(
+            row=row_index,
+            column=header_map[COL_MEANING],
+        ).value
+
+        examples_raw = sheet.cell(
+            row=row_index,
+            column=header_map[COL_EXAMPLES],
+        ).value
+
+        german = get_first_line(german_raw)
+        pronunciation = normalize_text(pronunciation_raw)
+        meaning = normalize_text(meaning_raw)
+        examples = clean_examples(examples_raw)
+
+        if not german:
+            skipped_count += 1
+            continue
+
+        vietnamese = combine_meaning_and_pronunciation(
+            meaning=meaning,
+            pronunciation=pronunciation,
+        )
+
+        existing_vocab = get_existing_vocab(
             session=session,
-            file_bytes=file_bytes,
-            collection_name=collection_name,
-            collection_description=collection_description,
-            collection_icon=collection_icon,
-            default_topic=default_topic,
-            mode=mode,
-            sheet_name=sheet_name,
+            german=german,
+            collection_id=collection.id,
         )
 
-        return result
+        if existing_vocab:
+            if mode == "skip":
+                skipped_count += 1
+                continue
 
-    except HTTPException:
-        raise
+            existing_vocab.vietnamese = vietnamese
+            existing_vocab.examples = examples
+            existing_vocab.topic = default_topic
+            existing_vocab.collection_id = collection.id
 
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+            session.add(existing_vocab)
+            updated_count += 1
+        else:
+            vocab = Vocab(
+                german=german,
+                vietnamese=vietnamese,
+                examples=examples,
+                topic=default_topic,
+                collection_id=collection.id,
+                swipe_count=0,
+                is_starred=False,
+            )
 
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Excel import failed: {exc}",
-        ) from exc
+            session.add(vocab)
+            imported_count += 1
+
+    session.commit()
+
+    return {
+        "success": True,
+        "sheet": sheet.title,
+        "collection_id": collection.id,
+        "collection_name": collection.name,
+        "imported": imported_count,
+        "updated": updated_count,
+        "skipped": skipped_count,
+        "total_processed": imported_count + updated_count + skipped_count,
+    }

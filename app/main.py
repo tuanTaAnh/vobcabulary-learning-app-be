@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.db.database import create_db_and_tables
-from app.routers import ai, chat, collections, mcq, stats, vocab
+from app.routers import ai, chat, collections, import_excel, mcq, stats, vocab
 from app.services.llm_service import LLMNotReadyError, preload_llm
 
 app = FastAPI(title=settings.APP_NAME)
@@ -62,3 +62,4 @@ app.include_router(mcq.router)
 app.include_router(stats.router)
 app.include_router(ai.router)
 app.include_router(chat.router)
+app.include_router(import_excel.router)
