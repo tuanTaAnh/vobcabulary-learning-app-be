@@ -1,60 +1,100 @@
-# WortWander Backend
+# 🌍 WortWander Backend
 
-WortWander Backend is the API layer for an interactive German vocabulary learning application.
+**WortWander Backend** is the API layer for an interactive German vocabulary learning application.
 
 It powers vocabulary management, collections, starred words, flashcards, MCQ practice, learning statistics, and AI-assisted example generation.
 
-Frontend repository: https://github.com/tuanTaAnh/vobcabulary-learning-app-fe
+[![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![SQLite](https://img.shields.io/badge/Database-SQLite-003B57?logo=sqlite)](https://www.sqlite.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://www.docker.com/)
+[![Frontend](https://img.shields.io/badge/Frontend-Vercel-black?logo=vercel)](https://vobcabulary-learning-app-fe.vercel.app)
 
 ---
 
-## Overview
+## 🚀 Live Demo
 
-WortWander helps learners save German words, organize them into collections, generate example sentences, practice with flashcards, answer quiz questions, and track their learning progress.
+Frontend live demo:
 
-The backend provides a REST API built with FastAPI and SQLModel. It stores vocabulary data, collections, study logs, quiz results, and learning progress in a local database.
+https://vobcabulary-learning-app-fe.vercel.app
 
-The project is designed to run locally during development and can also be started with Docker.
+Frontend repository:
+
+https://github.com/tuanTaAnh/vobcabulary-learning-app-fe
+
+Backend repository:
+
+https://github.com/tuanTaAnh/vobcabulary-learning-app-be
 
 ---
 
-## Key Features
+## 📌 Overview
 
-Vocabulary CRUD API
+**WortWander** helps German learners save vocabulary, organize words into collections, generate example sentences, practice with flashcards, answer quiz questions, and track learning progress.
+
+This backend provides a REST API built with **FastAPI** and **SQLModel**. It stores vocabulary data, collections, study logs, quiz results, and learning statistics in a local SQLite database.
+
+The project is designed for local development and can also be started with Docker.
+
+---
+
+## ✨ Key Features
+
+### 📚 Vocabulary Management
 
 Create, read, update, and delete German vocabulary items.
 
-Collections
+### 🗂️ Collections
 
-Group words into collections such as German Vocab, Travel, Work, Food, or any custom learning topic.
+Group words into collections such as:
 
-Starred Words
+German Vocab
+
+Travel
+
+Work
+
+Food
+
+Custom learning topics
+
+### ⭐ Starred Words
 
 Mark important vocabulary as starred for focused review.
 
-Flashcard Support
+### 🃏 Flashcard Support
 
 Serve vocabulary data for German-to-meaning and meaning-to-German practice.
 
-MCQ Practice
+### ✅ MCQ Practice
 
-Support multiple-choice quiz practice and store correct/wrong answer logs.
+Generate multiple-choice quiz questions and store correct/wrong answer logs.
 
-Learning Progress
+### 📈 Learning Progress
 
-Provide learning statistics such as total words, correct answers, wrong answers, and daily activity.
+Provide learning statistics such as:
 
-AI Example Generation
+Total words
+
+Correct answers
+
+Wrong answers
+
+Daily activity
+
+Study history
+
+### 🤖 AI Example Generation
 
 Generate example sentences for saved German words.
 
-Docker-ready Setup
+### 🐳 Docker-ready Setup
 
-Supports both local development and Docker-based execution.
+Run the backend locally or with Docker Compose.
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 Python
 
@@ -68,18 +108,20 @@ Pydantic
 
 Uvicorn
 
-Docker / Docker Compose
+Docker
+
+Docker Compose
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```text
 .
 ├── app/
 │   ├── main.py
-│   ├── models.py
-│   ├── database.py
+│   ├── db/
+│   ├── models/
 │   ├── routes/
 │   ├── services/
 │   └── scripts/
@@ -88,18 +130,19 @@ Docker / Docker Compose
 ├── requirements.txt
 ├── .env.example
 ├── Dockerfile
+├── docker-compose.yml
 └── README.md
 ```
 
-The exact structure may vary slightly depending on the current implementation, but the main backend logic is organized under the app directory.
+The exact structure may vary slightly depending on the current implementation, but the main backend logic is organized under the `app` directory.
 
 ---
 
-## Environment Setup
+## ⚙️ Environment Setup
 
 This project uses `.env.example` as the template for environment configuration.
 
-The real environment files are not committed to Git.
+Real environment files are not committed to Git.
 
 Create your local environment files from the example file:
 
@@ -123,7 +166,7 @@ Use `.env.docker` for Docker-based execution.
 
 ---
 
-## Local Development
+## 💻 Local Development
 
 Create and activate a virtual environment:
 
@@ -144,7 +187,7 @@ Run the backend:
 uvicorn app.main:app --reload
 ```
 
-The API should be available at:
+The backend should be available at:
 
 ```text
 http://localhost:8000
@@ -158,7 +201,7 @@ http://localhost:8000/docs
 
 ---
 
-## Docker Usage
+## 🐳 Docker Usage
 
 Build and run the backend with Docker Compose:
 
@@ -172,7 +215,7 @@ Stop the service:
 docker compose down
 ```
 
-View logs:
+View backend logs:
 
 ```bash
 docker compose logs -f backend
@@ -180,7 +223,7 @@ docker compose logs -f backend
 
 ---
 
-## Database
+## 🗄️ Database
 
 The default setup uses SQLite for simplicity.
 
@@ -190,11 +233,17 @@ A typical local database path is:
 data/vocab.db
 ```
 
-Make sure the data directory exists if your environment uses a local SQLite file.
+Make sure the `data` directory exists if your environment uses a local SQLite file.
+
+Example:
+
+```bash
+mkdir -p data
+```
 
 ---
 
-## Importing Vocabulary Data
+## 📥 Importing Vocabulary Data
 
 If the project includes an Excel ingestion script, vocabulary data can be imported with:
 
@@ -206,7 +255,7 @@ The script can be configured to read from a predefined Excel file and insert voc
 
 ---
 
-## Main API Capabilities
+## 🔌 Main API Capabilities
 
 The backend supports APIs for:
 
@@ -228,11 +277,11 @@ MCQ practice
 
 AI scene/chat practice
 
-The frontend consumes these APIs to provide the full user experience.
+The frontend consumes these APIs to provide the full WortWander learning experience.
 
 ---
 
-## Frontend Integration
+## 🖥️ Frontend Integration
 
 This backend is designed to work with the WortWander frontend:
 
@@ -245,26 +294,16 @@ When running locally, make sure the frontend points to the correct backend URL.
 Example frontend environment variable:
 
 ```env
-VITE_API_BASE_URL=http://localhost:8000
+VITE_API_BASE=http://localhost:8000
 ```
 
----
-
-## Recommended Development Workflow
-
-Start the backend:
-
-```bash
-uvicorn app.main:app --reload
-```
-
-Start the frontend from the frontend repository:
+Then start the frontend from the frontend repository:
 
 ```bash
 npm run dev
 ```
 
-Open the frontend in the browser:
+Open the frontend in your browser:
 
 ```text
 http://localhost:5173
@@ -272,7 +311,35 @@ http://localhost:5173
 
 ---
 
-## GitHub Notes
+## 🔄 Recommended Development Workflow
+
+Start the backend:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Start the frontend:
+
+```bash
+npm run dev
+```
+
+Open the app:
+
+```text
+http://localhost:5173
+```
+
+Open backend API documentation:
+
+```text
+http://localhost:8000/docs
+```
+
+---
+
+## 🔐 GitHub Notes
 
 Do not commit real environment files.
 
@@ -286,7 +353,7 @@ __pycache__/
 .venv/
 ```
 
-Only commit:
+Only commit the environment template:
 
 ```text
 .env.example
@@ -296,18 +363,22 @@ This allows other developers to create their own `.env` and `.env.docker` files 
 
 ---
 
-## Related Repository
+## 📎 Related Repository
 
 Frontend repository:
 
-```text
 https://github.com/tuanTaAnh/vobcabulary-learning-app-fe
-```
+
+Live demo:
+
+https://vobcabulary-learning-app-fe.vercel.app
 
 ---
 
-## Author
+## 👨‍💻 Author
 
-Developed by Tuan Ta Anh
+Developed by **Tuan Ta Anh**
 
-GitHub: https://github.com/tuanTaAnh
+GitHub:
+
+https://github.com/tuanTaAnh
