@@ -1,4 +1,5 @@
 import random
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +9,37 @@ from app.db.database import get_session
 from app.models.models import StudyLog, Vocab
 
 router = APIRouter(prefix="/mcq", tags=["mcq"])
+
+
+def get_example_lines(examples: str | None) -> list[str]:
+    if not examples:
+        return []
+
+    return [
+        line.strip()
+        for line in examples.split("\n")
+        if line.strip()
+    ]
+
+
+def get_maskable_example_lines(vocab: Vocab) -> list[str]:
+    example_lines = get_example_lines(vocab.examples)
+
+    if not example_lines:
+        return []
+
+    pattern = re.compile(re.escape(vocab.german), re.IGNORECASE)
+
+    return [
+        line
+        for line in example_lines
+        if pattern.search(line)
+    ]
+
+
+def mask_answer_in_sentence(sentence: str, answer: str) -> str:
+    pattern = re.compile(re.escape(answer), re.IGNORECASE)
+    return pattern.sub("_____", sentence, count=1)
 
 
 @router.get("")
@@ -22,31 +54,33 @@ def get_mcq(
 
     vocabs = session.exec(statement).all()
 
-    if len(vocabs) < 4:
-        raise HTTPException(
-            status_code=400,
-            detail="At least 4 words are required to generate a quiz question.",
-        )
-
-    answer = random.choice(vocabs)
-
-    example_lines = [
-        line.strip()
-        for line in answer.examples.split("\n")
-        if line.strip()
+    eligible_vocabs = [
+        vocab
+        for vocab in vocabs
+        if get_maskable_example_lines(vocab)
     ]
 
-    if example_lines:
-        sentence = random.choice(example_lines)
-    else:
-        sentence = f"Ich benutze das Wort {answer.german} in einem einfachen Satz."
+    if len(eligible_vocabs) < 4:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "At least 4 words with usable example sentences are required "
+                "to generate a quiz question."
+            ),
+        )
 
-    masked_sentence = sentence.replace(answer.german, "_____")
+    answer = random.choice(eligible_vocabs)
 
-    if masked_sentence == sentence:
-        masked_sentence = f"Ich benutze das Wort _____ in einem einfachen Satz."
+    answer_examples = get_maskable_example_lines(answer)
+    sentence = random.choice(answer_examples)
+    masked_sentence = mask_answer_in_sentence(sentence, answer.german)
 
-    distractors = [v for v in vocabs if v.id != answer.id]
+    distractors = [
+        vocab
+        for vocab in eligible_vocabs
+        if vocab.id != answer.id
+    ]
+
     options = random.sample(distractors, 3) + [answer]
     random.shuffle(options)
 
@@ -54,7 +88,7 @@ def get_mcq(
         "question": masked_sentence,
         "answer": answer.german,
         "answer_id": answer.id,
-        "options": [v.german for v in options],
+        "options": [vocab.german for vocab in options],
     }
 
 
