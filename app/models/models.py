@@ -7,6 +7,7 @@ from sqlmodel import Field, Relationship, SQLModel
 class CollectionBase(SQLModel):
     name: str
     description: Optional[str] = None
+    icon: Optional[str] = None
 
 
 class Collection(CollectionBase, table=True):
@@ -30,6 +31,7 @@ class CollectionRead(CollectionBase):
 class CollectionUpdate(SQLModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    icon: Optional[str] = None
 
 
 class VocabBase(SQLModel):
